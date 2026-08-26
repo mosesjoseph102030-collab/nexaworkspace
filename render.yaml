@@ -49,13 +49,14 @@ services:
       - key: VITE_WS_URL
         value: wss://nexachat-backend.onrender.com
 
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  - type: redis
+    name: nexachat-redis
+    plan: starter
+    ipAllowList: []
+
 databases:
   - name: nexachat-db
     plan: starter
     databaseName: nexachat
     user: nexachat
-
-  - name: nexachat-redis
-    type: redis
-    plan: starter
-    ipAllowList: []
