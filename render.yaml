@@ -24,7 +24,7 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: ALLOWED_ORIGINS
-        value: '["https://nexachat.app","https://www.nexachat.app"]'
+        value: '["https://nexachat-frontend.onrender.com"]'
       - key: AI_PROVIDER
         value: openai
       - key: OPENAI_API_KEY
