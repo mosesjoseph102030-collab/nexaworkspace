@@ -121,3 +121,10 @@ async def websocket_notify(
 @app.get("/api/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "app": settings.APP_NAME}
+
+@app.get("/api/debug/cors")
+async def debug_cors():
+    return {
+        "allowed_origins": settings.ALLOWED_ORIGINS,
+        "env": settings.ENV,
+    }
