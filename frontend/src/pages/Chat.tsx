@@ -51,11 +51,7 @@ export default function Chat() {
 
   const { data: members = [], refetch: refetchMembers } = useQuery({
     queryKey: ['members', slug],
-    queryFn: async () => {
-      // listMembers is owner-only — non-owners get 403, return empty for them
-      try { return await workspaceApi.listMembers(slug!) }
-      catch { return [] }
-    },
+    queryFn: () => workspaceApi.listMembers(slug!),
     enabled: !!slug,
     refetchInterval: 15_000,
   })

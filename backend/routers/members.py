@@ -42,8 +42,26 @@ async def list_members(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[MemberResponse]:
-    members = await workspace_service.list_members(slug, current_user, db)
-    return [MemberResponse.model_validate(m) for m in members]
+    """Owner gets all members. Approved members get only approved members."""
+    from sqlalchemy import select
+    from models.workspace_member import WorkspaceMember
+    from services.workspace_service import get_workspace_by_slug
+
+    workspace = await get_workspace_by_slug(slug, db)
+
+    # Owner sees everyone (pending + approved)
+    if workspace.owner_id == current_user.id:
+        members = await workspace_service.list_members(slug, current_user, db)
+        return [MemberResponse.model_validate(m) for m in members]
+
+    # Approved members see only approved members
+    result = await db.execute(
+        select(WorkspaceMember).where(
+            WorkspaceMember.workspace_id == workspace.id,
+            WorkspaceMember.approved == True,  # noqa: E712
+        )
+    )
+    return [MemberResponse.model_validate(m) for m in result.scalars().all()]
 
 
 @router.get("/{slug}/members/pending", response_model=list[MemberResponse])
