@@ -18,12 +18,15 @@ REFRESH_COOKIE_NAME = "refresh_token"
 
 
 def _set_refresh_cookie(response: Response, token: str) -> None:
+    # samesite="none" REQUIRES secure=True per browser spec.
+    # Vercel (frontend) + Render (backend) = always cross-origin in production,
+    # so we must always send secure cookies when samesite is "none".
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=token,
         httponly=True,
         samesite="none",
-        secure=settings.ENV == "prod",
+        secure=True,  # Required for cross-origin (samesite=none) cookies
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
         path="/api/auth",
     )

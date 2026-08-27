@@ -5,17 +5,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '@/theme/ThemeProvider'
 import { ToastProvider } from '@/components/ui/Toast'
 import { useAuthStore } from '@/stores/authStore'
+import { useAuthInitializer } from '@/hooks/useAuthInitializer'
 
 // Lazy-loaded pages
-const Landing        = lazy(() => import('@/pages/Landing'))
-const Login          = lazy(() => import('@/pages/Login'))
-const Register       = lazy(() => import('@/pages/Register'))
+const Landing = lazy(() => import('@/pages/Landing'))
+const Login = lazy(() => import('@/pages/Login'))
+const Register = lazy(() => import('@/pages/Register'))
 const CreateWorkspace = lazy(() => import('@/pages/CreateWorkspace'))
-const Chat           = lazy(() => import('@/pages/Chat'))
-const JoinRequest    = lazy(() => import('@/pages/JoinRequest'))
+const Chat = lazy(() => import('@/pages/Chat'))
+const JoinRequest = lazy(() => import('@/pages/JoinRequest'))
 const PendingApproval = lazy(() => import('@/pages/PendingApproval'))
 const OwnerDashboard = lazy(() => import('@/pages/OwnerDashboard'))
-const SystemMonitor  = lazy(() => import('@/pages/SystemMonitor'))
+const SystemMonitor = lazy(() => import('@/pages/SystemMonitor'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,6 +44,17 @@ function PageFallback() {
       </div>
     </div>
   )
+}
+
+/**
+ * Restores session from httpOnly refresh cookie on every page load.
+ * Renders nothing (just the pagefallback spinner) until the attempt completes.
+ * This ensures useWebSocket always sees a valid accessToken, not null.
+ */
+function AuthInitializer({ children }: { children: React.ReactNode }) {
+  const ready = useAuthInitializer()
+  if (!ready) return <PageFallback />
+  return <>{children}</>
 }
 
 /** Redirects unauthenticated users to login */
@@ -93,7 +105,9 @@ export default function App() {
       <ThemeProvider>
         <ToastProvider>
           <BrowserRouter>
-            <AppRoutes />
+            <AuthInitializer>
+              <AppRoutes />
+            </AuthInitializer>
           </BrowserRouter>
         </ToastProvider>
       </ThemeProvider>
