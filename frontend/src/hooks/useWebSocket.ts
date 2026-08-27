@@ -10,6 +10,10 @@ interface UseWebSocketOptions {
   enabled?: boolean
 }
 
+
+console.log("API URL:", import.meta.env.VITE_API_URL);
+console.log("WS URL:", import.meta.env.VITE_WS_URL);
+
 const BASE_WS_URL = import.meta.env.VITE_WS_URL ||
   `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`
 const BACKOFF_DELAYS = [1000, 2000, 4000, 8000, 15000, 30000]
