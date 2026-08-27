@@ -52,8 +52,9 @@ export default function Chat() {
   const { data: members = [], refetch: refetchMembers } = useQuery({
     queryKey: ['members', slug],
     queryFn: () => workspaceApi.listMembers(slug!),
-    enabled: !!slug,
-    refetchInterval: 15_000,
+    enabled: !!slug && !!memberStatus,
+    refetchInterval: 30_000,
+    retry: false,
   })
 
   const { data: memberStatus } = useQuery({

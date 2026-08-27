@@ -24,15 +24,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialise Redis if URL is configured
     try:
         import redis.asyncio as aioredis  # type: ignore
-        redis_client = aioredis.from_url(
-            settings.REDIS_URL,
-            encoding="utf-8",
-            decode_responses=True,
-        )
+
+        # Upstash Redis uses rediss:// (SSL) — pass ssl=True explicitly
+        redis_kwargs: dict = {
+            "encoding": "utf-8",
+            "decode_responses": True,
+        }
+        if settings.REDIS_URL.startswith("rediss://"):
+            import ssl as ssl_lib
+            redis_kwargs["ssl"] = True
+            redis_kwargs["ssl_cert_reqs"] = None  # Upstash self-signed cert
+
+        redis_client = aioredis.from_url(settings.REDIS_URL, **redis_kwargs)
         await redis_client.ping()
         app.state.redis = redis_client
         await ws_manager.init_redis(redis_client)
-        logger.info("Redis connected", url=settings.REDIS_URL)
+        logger.info("Redis connected", url=settings.REDIS_URL[:30])
     except Exception as e:
         logger.warning("Redis unavailable — running without pub/sub", error=str(e))
         app.state.redis = None
@@ -121,10 +128,3 @@ async def websocket_notify(
 @app.get("/api/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "app": settings.APP_NAME}
-
-@app.get("/api/debug/cors")
-async def debug_cors():
-    return {
-        "allowed_origins": settings.ALLOWED_ORIGINS,
-        "env": settings.ENV,
-    }
