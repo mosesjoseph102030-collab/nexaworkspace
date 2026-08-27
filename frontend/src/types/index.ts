@@ -147,10 +147,17 @@ export interface WsErrorEvent { type: 'error'; message: string }
 export interface WsMessageEditedEvent { type: 'message_edited'; message_id: string; content: string; edited_at: string }
 export interface WsMessageDeletedEvent { type: 'message_deleted'; message_id: string }
 
+/** Sent once to a newly-connected socket so it knows who is already online. */
+export interface WsPresenceSnapshotEvent {
+  type: 'presence_snapshot'
+  users: Array<{ user_id: string; display_name: string; status: PresenceStatus }>
+}
+
 export type WsEvent =
   | WsMessageEvent
   | WsTypingEvent
   | WsPresenceEvent
+  | WsPresenceSnapshotEvent
   | WsApprovedEvent
   | WsDeclinedEvent
   | WsJoinRequestEvent

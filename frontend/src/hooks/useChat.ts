@@ -5,25 +5,40 @@ import { useAuthStore } from '@/stores/authStore'
 import type { WsEvent, Message } from '@/types'
 
 export function useChat(slug: string) {
-  const store = useChatStore()
+  // ── Use individual stable selectors instead of the full store object.
+  // Subscribing to the whole store (`useChatStore()`) creates a new object on every
+  // render, which was destabilising handleEvent and causing it to be re-created
+  // on every incoming message — leading to potential races in the WS event dispatch.
+  const messages = useChatStore(s => s.messages)
+  const hasMore = useChatStore(s => s.hasMore)
+  const addMessage = useChatStore(s => s.addMessage)
+  const updateMessage = useChatStore(s => s.updateMessage)
+  const removeMessage = useChatStore(s => s.removeMessage)
+  const setTyping = useChatStore(s => s.setTyping)
+  const setPresence = useChatStore(s => s.setPresence)
+  const clearChat = useChatStore(s => s.clearChat)
+  const prependHistory = useChatStore(s => s.prependHistory)
+  const typingUsers = useChatStore(s => s.typingUsers)
+  const presence = useChatStore(s => s.presence)
+
   const user = useAuthStore(s => s.user)
 
   // Load initial history on mount
   useEffect(() => {
-    store.clearChat()
+    clearChat()
     let cancelled = false
 
     messagesApi.list(slug, undefined, 50).then(page => {
       if (cancelled) return
       // API returns newest-first; reverse for display (oldest at top)
-      store.setMessages([...page.messages].reverse())
+      useChatStore.getState().setMessages([...page.messages].reverse())
       if (page.next_cursor) {
         useChatStore.setState({ nextCursor: page.next_cursor, hasMore: page.has_more })
       }
     }).catch(() => { /* silently fail — WS will keep working */ })
 
     return () => { cancelled = true }
-  }, [slug]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [slug, clearChat])
 
   // Load older messages (infinite scroll up)
   const loadMore = useCallback(async () => {
@@ -31,12 +46,12 @@ export function useChat(slug: string) {
     if (!hasMore || !nextCursor) return
 
     const page = await messagesApi.list(slug, nextCursor, 50)
-    store.prependHistory(
+    prependHistory(
       [...page.messages].reverse(),
       page.next_cursor,
       page.has_more,
     )
-  }, [slug, store])
+  }, [slug, prependHistory])
 
   // Handle incoming WS events
   const handleEvent = useCallback((event: WsEvent) => {
@@ -52,42 +67,50 @@ export function useChat(slug: string) {
           is_read: event.is_read,
           edited_at: event.edited_at,
         }
-        store.addMessage(msg)
+        addMessage(msg)
         // Clear typing indicator for the sender
-        store.setTyping(event.sender_id, event.sender_name, false)
+        setTyping(event.sender_id, event.sender_name, false)
         break
       }
       case 'typing':
-        store.setTyping(event.user_id, event.display_name, event.is_typing)
+        setTyping(event.user_id, event.display_name, event.is_typing)
         break
       case 'presence':
-        store.setPresence(event.user_id, event.display_name, event.status)
+        setPresence(event.user_id, event.display_name, event.status)
+        break
+      case 'presence_snapshot':
+        // Seed the online roster when we first connect — so we know who was
+        // already online before we joined the workspace channel.
+        if (Array.isArray(event.users)) {
+          for (const u of event.users as { user_id: string; display_name: string; status: string }[]) {
+            setPresence(u.user_id, u.display_name, u.status as 'online' | 'offline')
+          }
+        }
         break
       case 'message_edited':
-        store.updateMessage(event.message_id, {
+        updateMessage(event.message_id, {
           content: event.content,
           edited_at: event.edited_at,
         })
         break
       case 'message_deleted':
-        store.removeMessage(event.message_id)
+        removeMessage(event.message_id)
         break
     }
-  }, [store])
+  }, [addMessage, setTyping, setPresence, updateMessage, removeMessage])
 
   // Auto-expire typing indicators after 3s with no update
   useEffect(() => {
     const id = setInterval(() => {
       const now = Date.now()
-      const { typingUsers } = useChatStore.getState()
-      typingUsers.forEach((entry, userId) => {
+      useChatStore.getState().typingUsers.forEach((entry, userId) => {
         if (now - entry.at > 3000) {
-          store.setTyping(userId, entry.displayName, false)
+          useChatStore.getState().setTyping(userId, entry.displayName, false)
         }
       })
     }, 1000)
     return () => clearInterval(id)
-  }, [store])
+  }, [])
 
   const sendMessage = useCallback((sendEvent: (e: object) => void, content: string) => {
     if (!content.trim()) return
@@ -95,10 +118,10 @@ export function useChat(slug: string) {
   }, [])
 
   return {
-    messages: store.messages,
-    typingUsers: store.typingUsers,
-    presence: store.presence,
-    hasMore: store.hasMore,
+    messages,
+    typingUsers,
+    presence,
+    hasMore,
     loadMore,
     handleEvent,
     sendMessage,

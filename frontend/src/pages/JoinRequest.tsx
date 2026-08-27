@@ -15,12 +15,13 @@ import type { AxiosError } from 'axios'
  * Join flow — never forces a redirect to /login.
  *
  * Flow A (already logged in):
- *   Enter display name → Request to join → redirect to /pending
+ *   Shows a "signed in as X — use this account" badge.
+ *   Enter display name → Request to join → redirect to /pending.
+ *   User can click "Use a different account" to sign out and see the full form.
  *
  * Flow B (not logged in):
- *   Step 1: Enter display name (and optionally email+password to create account)
- *   Step 2: Account created + membership requested in one shot → /pending
- *
+ *   Step 1: Enter display name + email + password to create account.
+ *   Step 2: Account created + membership requested in one shot → /pending.
  *   If they already have an account they can switch to "Sign in" mode.
  */
 
@@ -30,6 +31,7 @@ export default function JoinRequest() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const isAuthenticated = useAuthStore(s => s.isAuthenticated)
+  const user = useAuthStore(s => s.user)
   const setAuth = useAuthStore(s => s.setAuth)
 
   const [workspace, setWorkspace] = useState<WorkspacePublic | null>(null)
@@ -171,8 +173,32 @@ export default function JoinRequest() {
             autoFocus
           />
 
-          {/* Auth fields — only shown when not logged in */}
-          {!isAuthenticated && (
+          {/* Auth section */}
+          {isAuthenticated ? (
+            /*
+             * Already signed in — show a clear "signed in as X" badge.
+             * The user can click "Use a different account" to sign out,
+             * which will flip isAuthenticated back to false and reveal
+             * the full email+password form below.
+             */
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Signed in</p>
+                  <p className="text-xs text-[var(--text-muted)] truncate">{user?.email}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => useAuthStore.getState().clearAuth()}
+                className="text-xs text-brand-500 hover:underline text-left"
+              >
+                Use a different account instead
+              </button>
+            </div>
+          ) : (
+            /* Not signed in — always show the full register / login form */
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -239,22 +265,10 @@ export default function JoinRequest() {
             {isAuthenticated
               ? 'Request to join'
               : authMode === 'register'
-              ? 'Create account & request to join'
-              : 'Sign in & request to join'}
+                ? 'Create account & request to join'
+                : 'Sign in & request to join'}
           </Button>
         </form>
-
-        {isAuthenticated && (
-          <p className="text-xs text-center text-[var(--text-muted)] mt-4">
-            Signed in as a different person?{' '}
-            <button
-              onClick={() => { useAuthStore.getState().clearAuth(); window.location.reload() }}
-              className="text-brand-500 hover:underline"
-            >
-              Sign out
-            </button>
-          </p>
-        )}
       </motion.div>
     </div>
   )

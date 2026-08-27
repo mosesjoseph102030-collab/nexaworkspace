@@ -131,6 +131,11 @@ async def ws_chat(
 
     # ── Accept and register ────────────────────────────────────────────────
     await websocket.accept()
+
+    # Snapshot the currently-online user_ids BEFORE registering self,
+    # so we can look up their display names from the DB.
+    online_user_ids = ws_manager.get_online_users(workspace_id)
+
     await ws_manager.connect(websocket, workspace_id, user_id, display_name)
 
     # Send connected confirmation
@@ -139,6 +144,45 @@ async def ws_chat(
         "workspace_id": str(workspace_id),
         "user_id": str(user_id),
     }))
+
+    # ── Presence snapshot ─────────────────────────────────────────────────
+    # Build the roster of already-online members so the new client knows
+    # who is online without waiting for them to send their next event.
+    if online_user_ids:
+        async with async_session_factory() as snap_session:
+            snapshot_users: list[dict] = []
+            for uid_str in online_user_ids:
+                try:
+                    uid = uuid.UUID(uid_str)
+                except ValueError:
+                    continue
+                # Owner: display name comes from user.full_name
+                if uid == workspace.owner_id:
+                    u_res = await snap_session.execute(
+                        select(User).where(User.id == uid)
+                    )
+                    u = u_res.scalar_one_or_none()
+                    snap_name = u.full_name if u else uid_str
+                else:
+                    m_res = await snap_session.execute(
+                        select(WorkspaceMember).where(
+                            WorkspaceMember.workspace_id == workspace_id,
+                            WorkspaceMember.user_id == uid,
+                        )
+                    )
+                    m = m_res.scalar_one_or_none()
+                    snap_name = m.display_name if m else uid_str
+                snapshot_users.append({
+                    "user_id": uid_str,
+                    "display_name": snap_name,
+                    "status": "online",
+                })
+
+            if snapshot_users:
+                await websocket.send_text(json.dumps({
+                    "type": "presence_snapshot",
+                    "users": snapshot_users,
+                }))
 
     logger.info("WS chat accepted", slug=slug, user_id=str(user_id))
 

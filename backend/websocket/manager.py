@@ -169,6 +169,18 @@ class ConnectionManager:
         for ws in dead:
             self.personal_connections[user_id].discard(ws)
 
+    # ── Presence helpers ────────────────────────────────────────────────────
+
+    def get_online_users(self, workspace_id: uuid.UUID) -> list[dict]:
+        """Return a list of {user_id, display_name, status} for all currently-connected
+        users in a workspace. Used to seed the presence snapshot for new joiners."""
+        # We only store (websocket, user_id) — display_name is not in active_connections.
+        # So we return the unique user_ids; the consumer supplies the display_name from context.
+        seen: dict[uuid.UUID, None] = {}
+        for _, uid in self.active_connections.get(workspace_id, set()):
+            seen[uid] = None
+        return [str(uid) for uid in seen]
+
     # ── Force-kick user ────────────────────────────────────────────────────
 
     async def kick_user(self, workspace_id: uuid.UUID, user_id: uuid.UUID) -> None:
