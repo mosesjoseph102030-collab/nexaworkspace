@@ -114,8 +114,24 @@ export function useChat(slug: string) {
 
   const sendMessage = useCallback((sendEvent: (e: object) => void, content: string) => {
     if (!content.trim()) return
-    sendEvent({ type: 'message', content: content.trim() })
-  }, [])
+    const trimmed = content.trim()
+
+    // Optimistic: add message to UI immediately so it never "disappears"
+    const optimisticId = `optimistic-${Date.now()}`
+    const optimisticMsg: Message = {
+      id: optimisticId,
+      room_id: '',
+      sender_id: user?.id ?? '',
+      sender_name: user?.full_name ?? 'You',
+      content: trimmed,
+      timestamp: new Date().toISOString(),
+      is_read: false,
+      edited_at: null,
+    }
+    addMessage(optimisticMsg)
+
+    sendEvent({ type: 'message', content: trimmed })
+  }, [user, addMessage])
 
   return {
     messages,

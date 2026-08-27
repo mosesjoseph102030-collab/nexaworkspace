@@ -43,8 +43,23 @@ export const useChatStore = create<ChatState>((set) => ({
 
   addMessage: (msg) =>
     set(state => {
-      // Deduplicate by id (optimistic + confirmed)
+      // Deduplicate by real id
       if (state.messages.some(m => m.id === msg.id)) return state
+
+      // Replace optimistic message with confirmed one (same sender + content)
+      if (!msg.id.startsWith('optimistic-')) {
+        const optimisticIndex = state.messages.findIndex(
+          m => m.id.startsWith('optimistic-') &&
+               m.sender_id === msg.sender_id &&
+               m.content === msg.content
+        )
+        if (optimisticIndex !== -1) {
+          const updated = [...state.messages]
+          updated[optimisticIndex] = msg
+          return { messages: updated }
+        }
+      }
+
       return { messages: [...state.messages, msg] }
     }),
 

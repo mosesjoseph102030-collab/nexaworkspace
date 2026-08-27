@@ -301,7 +301,7 @@ export default function Chat() {
         {/* Sidebar — shows approved members with presence */}
         <Sidebar
           members={approvedMembers}
-          ownerId={''}
+          ownerId={isOwner ? (user?.id ?? '') : ''}
           currentUserId={currentUserId}
           mobileOpen={mobileSidebarOpen}
           onMobileClose={() => setMobileSidebarOpen(false)}
